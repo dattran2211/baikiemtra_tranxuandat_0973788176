@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Caro X O Game</title>
+  <style>
+    canvas { border: 1px solid black; }
+  </style>
+</head>
+<body>
+<h1>Caro X O</h1>
+<canvas id="caro" width="600" height="600"></canvas>
+<p id="info">Chờ ghép cặp...</p>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+const canvas = document.getElementById('caro');
+const ctx = canvas.getContext('2d');
+const info = document.getElementById('info');
+const CELL = 40; // 600/15
+let board = Array(15).fill(0).map(()=>Array(15).fill(''));
+let turn = 'X';
+let room = '';
+
+// Vẽ board khung lúc load
+function drawBoard() {
+  ctx.clearRect(0,0,600,600);
+  for(let i=0;i<=15;i++){
+    ctx.beginPath();
+    ctx.moveTo(0,i*CELL); ctx.lineTo(600,i*CELL);
+    ctx.moveTo(i*CELL,0); ctx.lineTo(i*CELL,600);
+    ctx.stroke();
+  }
+
+  for(let i=0;i<15;i++){
+    for(let j=0;j<15;j++){
+      const val = board[i][j];
+      if(val==='X'){
+        ctx.beginPath();
+        ctx.moveTo(j*CELL+5,i*CELL+5);
+        ctx.lineTo(j*CELL+CELL-5,i*CELL+CELL-5);
+        ctx.moveTo(j*CELL+CELL-5,i*CELL+5);
+        ctx.lineTo(j*CELL+5,i*CELL+CELL-5);
+        ctx.stroke();
+      } else if(val==='O'){
+        ctx.beginPath();
+        ctx.arc(j*CELL+CELL/2,i*CELL+CELL/2,15,0,Math.PI*2);
+        ctx.stroke();
+      }
+    }
+  }
+}
+drawBoard();
+
+const socket = io('http://localhost:3000');
+
+socket.on('connect', () => {
+  console.log('Connected to server', socket.id);
+  socket.emit('join');
+});
+
+// Nhận start
+socket.on('start', data=>{
+  room = data.room;
+  turn = data.turn;
+  board = data.board;
+  info.innerText = 'Game bắt đầu! Lượt: ' + turn;
+  drawBoard();
+});
+
+// Nhận update
+socket.on('update', data=>{
+  board = data.board;
+  turn = data.turn;
+  info.innerText = 'Lượt: ' + turn;
+  drawBoard();
+});
+
+// Nhận end
+socket.on('end', data=>{
+  board = data.board;
+  drawBoard();
+  info.innerText = 'Kết thúc! Người thắng: ' + data.winner;
+});
+
+// Click đánh
+canvas.addEventListener('click', e=>{
+  if(!room) return;
+  const x = Math.floor(e.offsetY / CELL);
+  const y = Math.floor(e.offsetX / CELL);
+  socket.emit('move',{room,x,y});
+});
+</script>
+</body>
+</html>

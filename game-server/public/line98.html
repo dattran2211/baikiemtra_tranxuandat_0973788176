@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Line 98 Game</title>
+  <style>
+    canvas { border: 1px solid black; }
+  </style>
+</head>
+<body>
+<h1>Line 98 Game</h1>
+<canvas id="line98" width="450" height="450"></canvas>
+<button id="hintBtn">Hint</button>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const canvas = document.getElementById('line98');
+const ctx = canvas.getContext('2d');
+const socket = io('http://localhost:3000'); // server WebSocket
+
+const CELL = 50; // 450/9 = 50px
+let board = Array(9).fill(0).map(()=>Array(9).fill(0));
+let selected = null;
+
+// vẽ bàn chơi
+function drawBoard(){
+  ctx.clearRect(0,0,450,450);
+  for(let i=0;i<=9;i++){
+    ctx.moveTo(0,i*CELL); ctx.lineTo(450,i*CELL);
+    ctx.moveTo(i*CELL,0); ctx.lineTo(i*CELL,450);
+  }
+  ctx.stroke();
+
+  for(let i=0;i<9;i++){
+    for(let j=0;j<9;j++){
+      const val = board[i][j];
+      if(val>0){
+        ctx.beginPath();
+        ctx.fillStyle = ['red','blue','green','orange','purple'][val-1];
+        ctx.arc(j*CELL+CELL/2, i*CELL+CELL/2, 20, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+  }
+
+  if(selected){
+    ctx.strokeStyle='gold';
+    ctx.lineWidth=3;
+    ctx.strokeRect(selected[1]*CELL+2, selected[0]*CELL+2, CELL-4, CELL-4);
+    ctx.strokeStyle='black';
+    ctx.lineWidth=1;
+  }
+}
+
+// click chọn & di chuyển
+canvas.addEventListener('click', e=>{
+  const x = Math.floor(e.offsetY / CELL);
+  const y = Math.floor(e.offsetX / CELL);
+
+  if(selected){
+    socket.emit('move', {from:selected, to:[x,y]});
+    selected = null;
+  } else if(board[x][y]>0){
+    selected = [x,y];
+  }
+  drawBoard();
+});
+
+// nhận update từ server
+socket.on('update', data=>{
+  board = data;
+  drawBoard();
+});
+
+// nhận hint từ server
+document.getElementById('hintBtn').addEventListener('click', ()=>{
+  socket.emit('hint');
+});
+
+socket.on('hint', hint=>{
+  selected = hint[0]; // highlight ô gợi ý
+  drawBoard();
+});
+
+drawBoard();
+</script>
+</body>
+</html>
